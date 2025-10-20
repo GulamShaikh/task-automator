@@ -245,41 +245,16 @@
             const addSelectedTasksBtn = document.getElementById('add-selected-tasks-btn');
             const loadingSpinner = document.getElementById('loading-spinner');
             const workflowGoalInput = document.getElementById('workflow-goal');
-            
-            // API Settings Modal Elements
-            const apiSettingsBtn = document.getElementById('api-settings-btn');
-            const apiSettingsModal = document.getElementById('api-settings-modal');
-            const closeApiModalBtn = document.getElementById('close-api-modal-btn');
-            const apiKeyInput = document.getElementById('api-key-input');
-            const saveApiKeyBtn = document.getElementById('save-api-key-btn');
-            const clearApiKeyBtn = document.getElementById('clear-api-key-btn');
-            const apiKeyStatus = document.getElementById('api-key-status');
 
             let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
             let mainInterval;
             let tempSuggestedTasks = [];
             
             // --- Gemini API Configuration ---
-            // API key is now stored securely in localStorage, not hardcoded
-            // const getApiKey = () => localStorage.getItem('gemini_api_key');
-            // const getApiUrl = () => {
-            //     const apiKey = getApiKey();
-            //     if (!apiKey) return null;
-            //     return `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-            // };
-
-            // TEMPORARY: Hardcoded API key for demo purposes
-            const API_KEY = "AIzaSyDbN7BqcMsgAYQJaaePFDAw008td2SpQnM";
+            const API_KEY = "AIzaSyDbN7BqcMsgAYQJaaePFDAw008td2SpQnM"; // Leave as is, it will be handled by the environment
             const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${API_KEY}`;
             
             const callGeminiAPI = async (prompt, isJson = false) => {
-                const API_URL = getApiUrl();
-                
-                if (!API_URL) {
-                    logMessage('⚠️ API key not configured. Please set your API key in settings.', 'text-yellow-400');
-                    throw new Error('API key not configured');
-                }
-                
                 const payload = {
                     contents: [{ parts: [{ text: prompt }] }],
                 };
@@ -554,74 +529,6 @@
                 });
                 toggleModal(false);
                 logMessage(`${checkboxes.length} tasks added from AI suggestions.`, 'text-purple-400');
-            });
-
-            // --- API Settings Modal Handlers ---
-            const toggleApiModal = (show) => {
-                if (show) {
-                    apiSettingsModal.classList.remove('hidden');
-                    setTimeout(() => {
-                        apiSettingsModal.classList.remove('opacity-0');
-                        apiSettingsModal.querySelector('.modal-content').classList.remove('scale-95');
-                    }, 10);
-                    // Load existing API key (show masked)
-                    const existingKey = getApiKey();
-                    if (existingKey) {
-                        apiKeyInput.value = '••••••••••••••••••••';
-                        apiKeyInput.placeholder = 'API key is set (masked for security)';
-                    }
-                } else {
-                    apiSettingsModal.classList.add('opacity-0');
-                    apiSettingsModal.querySelector('.modal-content').classList.add('scale-95');
-                    setTimeout(() => {
-                        apiSettingsModal.classList.add('hidden');
-                        apiKeyInput.value = '';
-                        apiKeyStatus.classList.add('hidden');
-                    }, 300);
-                }
-            };
-
-            apiSettingsBtn.addEventListener('click', () => {
-                toggleApiModal(true);
-                lucide.createIcons();
-            });
-
-            closeApiModalBtn.addEventListener('click', () => toggleApiModal(false));
-
-            saveApiKeyBtn.addEventListener('click', () => {
-                const key = apiKeyInput.value.trim();
-                if (!key || key.startsWith('••••')) {
-                    apiKeyStatus.textContent = '❌ Please enter a valid API key';
-                    apiKeyStatus.className = 'text-sm text-center text-red-400';
-                    apiKeyStatus.classList.remove('hidden');
-                    return;
-                }
-                
-                localStorage.setItem('gemini_api_key', key);
-                apiKeyStatus.textContent = '✅ API key saved successfully!';
-                apiKeyStatus.className = 'text-sm text-center text-green-400';
-                apiKeyStatus.classList.remove('hidden');
-                
-                logMessage('✅ Gemini API key configured successfully!', 'text-green-400');
-                
-                setTimeout(() => {
-                    toggleApiModal(false);
-                }, 1500);
-            });
-
-            clearApiKeyBtn.addEventListener('click', () => {
-                localStorage.removeItem('gemini_api_key');
-                apiKeyInput.value = '';
-                apiKeyInput.placeholder = 'Enter your Gemini API key';
-                apiKeyStatus.textContent = '🗑️ API key cleared';
-                apiKeyStatus.className = 'text-sm text-center text-gray-400';
-                apiKeyStatus.classList.remove('hidden');
-                
-                logMessage('🗑️ Gemini API key removed', 'text-gray-400');
-                
-                setTimeout(() => {
-                    apiKeyStatus.classList.add('hidden');
-                }, 2000);
             });
 
 
