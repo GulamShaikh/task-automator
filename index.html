@@ -57,9 +57,14 @@
                     <p class="text-sm text-gray-400 mt-1">Your personal workflow assistant.</p>
                 </div>
             </div>
-            <div class="text-sm text-right text-gray-400 font-mono bg-gray-800/50 px-3 py-1.5 rounded-lg">
-                <span id="date-span"></span><br>
-                <span id="time-span"></span>
+            <div class="flex items-center gap-3">
+                <button id="api-settings-btn" class="bg-gray-800 hover:bg-gray-700 text-gray-300 p-2 rounded-lg transition-colors" title="API Settings">
+                    <i data-lucide="settings" class="w-5 h-5"></i>
+                </button>
+                <div class="text-sm text-right text-gray-400 font-mono bg-gray-800/50 px-3 py-1.5 rounded-lg">
+                    <span id="date-span"></span><br>
+                    <span id="time-span"></span>
+                </div>
             </div>
         </header>
 
@@ -169,6 +174,53 @@
         </div>
     </div>
 
+    <!-- API Settings Modal -->
+    <div id="api-settings-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 modal-backdrop hidden opacity-0">
+        <div class="bg-gray-800 rounded-xl shadow-2xl p-6 w-full max-w-md mx-4 modal-content transform scale-95">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-semibold flex items-center gap-2">
+                    <i data-lucide="key" class="w-5 h-5 text-indigo-400"></i>
+                    API Settings
+                </h2>
+                <button id="close-api-modal-btn" class="p-1 rounded-full text-gray-400 hover:bg-gray-700">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="space-y-4">
+                <div class="bg-yellow-900/30 border border-yellow-700 rounded-lg p-3 text-sm">
+                    <p class="text-yellow-300 mb-2">🔒 <strong>Security Note:</strong></p>
+                    <p class="text-yellow-200/80">Your API key is stored locally in your browser and never sent to any server except Google's Gemini API.</p>
+                </div>
+                <div>
+                    <label for="api-key-input" class="block text-sm font-medium text-gray-400 mb-1">
+                        Gemini API Key
+                    </label>
+                    <input 
+                        type="password" 
+                        id="api-key-input" 
+                        placeholder="Enter your Gemini API key" 
+                        class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm p-2.5 focus:ring-indigo-500 focus:border-indigo-500"
+                    >
+                    <p class="mt-2 text-xs text-gray-500">
+                        Don't have an API key? 
+                        <a href="https://makersuite.google.com/app/apikey" target="_blank" class="text-indigo-400 hover:text-indigo-300 underline">
+                            Get one free from Google AI Studio
+                        </a>
+                    </p>
+                </div>
+                <div class="flex gap-3">
+                    <button id="save-api-key-btn" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-4 rounded-lg transition-colors">
+                        Save Key
+                    </button>
+                    <button id="clear-api-key-btn" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-4 rounded-lg transition-colors">
+                        Clear Key
+                    </button>
+                </div>
+                <div id="api-key-status" class="text-sm text-center hidden"></div>
+            </div>
+        </div>
+    </div>
+
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
@@ -193,16 +245,37 @@
             const addSelectedTasksBtn = document.getElementById('add-selected-tasks-btn');
             const loadingSpinner = document.getElementById('loading-spinner');
             const workflowGoalInput = document.getElementById('workflow-goal');
+            
+            // API Settings Modal Elements
+            const apiSettingsBtn = document.getElementById('api-settings-btn');
+            const apiSettingsModal = document.getElementById('api-settings-modal');
+            const closeApiModalBtn = document.getElementById('close-api-modal-btn');
+            const apiKeyInput = document.getElementById('api-key-input');
+            const saveApiKeyBtn = document.getElementById('save-api-key-btn');
+            const clearApiKeyBtn = document.getElementById('clear-api-key-btn');
+            const apiKeyStatus = document.getElementById('api-key-status');
 
             let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
             let mainInterval;
             let tempSuggestedTasks = [];
             
             // --- Gemini API Configuration ---
-            const API_KEY = "AIzaSyDbN7BqcMsgAYQJaaePFDAw008td2SpQnM"; // Leave as is, it will be handled by the environment
-            const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${API_KEY}`;
+            // API key is now stored securely in localStorage, not hardcoded
+            const getApiKey = () => localStorage.getItem('gemini_api_key');
+            const getApiUrl = () => {
+                const apiKey = getApiKey();
+                if (!apiKey) return null;
+                return `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            };
             
             const callGeminiAPI = async (prompt, isJson = false) => {
+                const API_URL = getApiUrl();
+                
+                if (!API_URL) {
+                    logMessage('⚠️ API key not configured. Please set your API key in settings.', 'text-yellow-400');
+                    throw new Error('API key not configured');
+                }
+                
                 const payload = {
                     contents: [{ parts: [{ text: prompt }] }],
                 };
@@ -477,6 +550,74 @@
                 });
                 toggleModal(false);
                 logMessage(`${checkboxes.length} tasks added from AI suggestions.`, 'text-purple-400');
+            });
+
+            // --- API Settings Modal Handlers ---
+            const toggleApiModal = (show) => {
+                if (show) {
+                    apiSettingsModal.classList.remove('hidden');
+                    setTimeout(() => {
+                        apiSettingsModal.classList.remove('opacity-0');
+                        apiSettingsModal.querySelector('.modal-content').classList.remove('scale-95');
+                    }, 10);
+                    // Load existing API key (show masked)
+                    const existingKey = getApiKey();
+                    if (existingKey) {
+                        apiKeyInput.value = '••••••••••••••••••••';
+                        apiKeyInput.placeholder = 'API key is set (masked for security)';
+                    }
+                } else {
+                    apiSettingsModal.classList.add('opacity-0');
+                    apiSettingsModal.querySelector('.modal-content').classList.add('scale-95');
+                    setTimeout(() => {
+                        apiSettingsModal.classList.add('hidden');
+                        apiKeyInput.value = '';
+                        apiKeyStatus.classList.add('hidden');
+                    }, 300);
+                }
+            };
+
+            apiSettingsBtn.addEventListener('click', () => {
+                toggleApiModal(true);
+                lucide.createIcons();
+            });
+
+            closeApiModalBtn.addEventListener('click', () => toggleApiModal(false));
+
+            saveApiKeyBtn.addEventListener('click', () => {
+                const key = apiKeyInput.value.trim();
+                if (!key || key.startsWith('••••')) {
+                    apiKeyStatus.textContent = '❌ Please enter a valid API key';
+                    apiKeyStatus.className = 'text-sm text-center text-red-400';
+                    apiKeyStatus.classList.remove('hidden');
+                    return;
+                }
+                
+                localStorage.setItem('gemini_api_key', key);
+                apiKeyStatus.textContent = '✅ API key saved successfully!';
+                apiKeyStatus.className = 'text-sm text-center text-green-400';
+                apiKeyStatus.classList.remove('hidden');
+                
+                logMessage('✅ Gemini API key configured successfully!', 'text-green-400');
+                
+                setTimeout(() => {
+                    toggleApiModal(false);
+                }, 1500);
+            });
+
+            clearApiKeyBtn.addEventListener('click', () => {
+                localStorage.removeItem('gemini_api_key');
+                apiKeyInput.value = '';
+                apiKeyInput.placeholder = 'Enter your Gemini API key';
+                apiKeyStatus.textContent = '🗑️ API key cleared';
+                apiKeyStatus.className = 'text-sm text-center text-gray-400';
+                apiKeyStatus.classList.remove('hidden');
+                
+                logMessage('🗑️ Gemini API key removed', 'text-gray-400');
+                
+                setTimeout(() => {
+                    apiKeyStatus.classList.add('hidden');
+                }, 2000);
             });
 
 
