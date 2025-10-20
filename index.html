@@ -261,12 +261,16 @@
             
             // --- Gemini API Configuration ---
             // API key is now stored securely in localStorage, not hardcoded
-            const getApiKey = () => localStorage.getItem('gemini_api_key');
-            const getApiUrl = () => {
-                const apiKey = getApiKey();
-                if (!apiKey) return null;
-                return `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-            };
+            // const getApiKey = () => localStorage.getItem('gemini_api_key');
+            // const getApiUrl = () => {
+            //     const apiKey = getApiKey();
+            //     if (!apiKey) return null;
+            //     return `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            // };
+
+            // TEMPORARY: Hardcoded API key for demo purposes
+            const API_KEY = "AIzaSyDbN7BqcMsgAYQJaaePFDAw008td2SpQnM";
+            const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${API_KEY}`;
             
             const callGeminiAPI = async (prompt, isJson = false) => {
                 const API_URL = getApiUrl();
