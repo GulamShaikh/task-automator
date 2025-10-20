@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Automator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .task-card {
+            transition: all 0.2s ease-in-out;
+        }
+        .task-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #2d3748; }
+        ::-webkit-scrollbar-thumb { background: #4a5568; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #718096; }
+        
+        /* Modal styles */
+        .modal-backdrop {
+            transition: opacity 0.3s ease;
+        }
+        .modal-content {
+            transition: transform 0.3s ease;
+        }
+        
+        /* Spinner for loading states */
+        .spinner {
+            border-color: #4f46e5;
+            border-top-color: transparent;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-200">
+    <div id="app" class="container mx-auto p-4 md:p-8 max-w-7xl">
+        
+        <!-- Header -->
+        <header class="flex items-start justify-between mb-8">
+            <div class="flex items-center gap-4">
+                <div class="bg-gradient-to-br from-indigo-600 to-purple-600 p-2 rounded-lg shadow-lg">
+                    <i data-lucide="zap" class="w-6 h-6 text-white"></i>
+                </div>
+                <div>
+                    <h1 class="text-2xl md:text-3xl font-bold text-white">Task Automator</h1>
+                    <p class="text-sm text-gray-400 mt-1">Your personal workflow assistant.</p>
+                </div>
+            </div>
+            <div class="text-sm text-right text-gray-400 font-mono bg-gray-800/50 px-3 py-1.5 rounded-lg">
+                <span id="date-span"></span><br>
+                <span id="time-span"></span>
+            </div>
+        </header>
+
+        <main class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <!-- Left Column: Task Creator -->
+            <div class="lg:col-span-1 bg-gray-800 p-6 rounded-xl shadow-lg flex flex-col">
+                <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                    <i data-lucide="plus-circle" class="w-5 h-5 text-indigo-400"></i>
+                    Create New Task
+                </h2>
+                <form id="task-form" class="space-y-4 flex-grow">
+                    <div>
+                        <label for="task-name" class="block text-sm font-medium text-gray-400">Task Name</label>
+                        <input type="text" id="task-name" placeholder="e.g., 'Daily Standup Reminder'" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2.5" required>
+                    </div>
+                    <div>
+                        <label for="task-action" class="block text-sm font-medium text-gray-400">Action Message / Prompt</label>
+                        <textarea id="task-action" rows="3" placeholder="Message to log or prompt for AI..." class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2.5" required></textarea>
+                    </div>
+                    <div class="relative group flex items-center pt-1">
+                        <input id="ai-action-checkbox" type="checkbox" class="h-4 w-4 rounded border-gray-500 bg-gray-700 text-indigo-600 focus:ring-indigo-500">
+                        <label for="ai-action-checkbox" class="ml-3 block text-sm text-gray-300 flex items-center gap-1.5 cursor-pointer">
+                           ✨ Make this an AI Action
+                            <i data-lucide="info" class="w-4 h-4 text-gray-500"></i>
+                        </label>
+                        <div class="absolute bottom-full mb-2 hidden group-hover:block w-64 bg-gray-900 text-gray-300 text-xs rounded-lg p-2 border border-gray-700 shadow-lg z-10">
+                            When checked, the 'Action Message' will be used as a prompt for the Gemini AI. The AI's response will be logged instead of the message itself.
+                        </div>
+                    </div>
+                    <div>
+                        <label for="task-interval" class="block text-sm font-medium text-gray-400">Run Every</label>
+                        <div class="mt-1 flex rounded-md shadow-sm">
+                            <input type="number" id="task-interval" value="10" min="1" class="flex-1 block w-full min-w-0 rounded-none rounded-l-md bg-gray-700 border-gray-600 sm:text-sm p-2.5 focus:ring-indigo-500 focus:border-indigo-500" required>
+                            <select id="task-unit" class="inline-flex items-center px-3 rounded-r-md border border-l-0 border-gray-600 bg-gray-700 text-gray-300 text-sm">
+                                <option value="seconds">Seconds</option>
+                                <option value="minutes">Minutes</option>
+                                <option value="hours">Hours</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 transition-all duration-300 shadow-lg hover:shadow-indigo-500/50 transform hover:-translate-y-0.5">
+                        <i data-lucide="plus" class="w-5 h-5"></i>
+                        Add Task
+                    </button>
+                </form>
+                <button id="suggest-tasks-btn" class="mt-4 w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors">
+                    <i data-lucide="sparkles" class="w-5 h-5"></i>
+                    ✨ Suggest Tasks with AI
+                </button>
+            </div>
+
+            <!-- Right Column: Tasks & Logs -->
+            <div class="lg:col-span-2 space-y-8">
+                <!-- Scheduled Tasks -->
+                <div>
+                    <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                        <i data-lucide="list" class="w-5 h-5 text-indigo-400"></i>
+                        Scheduled Tasks
+                    </h2>
+                    <div id="task-list" class="space-y-4">
+                        <p id="no-tasks-message" class="text-gray-500 text-center py-8">No tasks scheduled yet. Add one to get started!</p>
+                    </div>
+                </div>
+
+                <!-- Task Log -->
+                <div>
+                    <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                        <i data-lucide="terminal" class="w-5 h-5 text-indigo-400"></i>
+                        Task Log
+                    </h2>
+                    <div class="bg-gray-900 border border-gray-700 rounded-xl p-4 h-64 overflow-y-auto">
+                        <pre id="task-log" class="text-sm font-mono whitespace-pre-wrap text-gray-400"></pre>
+                        <p id="no-logs-message" class="text-gray-600 h-full flex items-center justify-center">Logs will appear here once tasks are executed.</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- AI Suggestion Modal -->
+    <div id="ai-suggestion-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 modal-backdrop hidden opacity-0">
+        <div class="bg-gray-800 rounded-xl shadow-2xl p-6 w-full max-w-lg mx-4 modal-content transform scale-95">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-semibold flex items-center gap-2"><i data-lucide="sparkles" class="w-5 h-5 text-purple-400"></i>Suggest a Workflow</h2>
+                <button id="close-modal-btn" class="p-1 rounded-full text-gray-400 hover:bg-gray-700"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label for="workflow-goal" class="block text-sm font-medium text-gray-400">What is your goal?</label>
+                    <input type="text" id="workflow-goal" placeholder="e.g., 'a productive morning routine'" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm p-2.5">
+                </div>
+                <button id="generate-suggestions-btn" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 px-4 rounded-lg flex items-center justify-center gap-2">
+                    Generate Ideas
+                </button>
+                <div id="suggestions-container" class="mt-4 hidden">
+                    <h3 class="font-semibold text-gray-300 mb-2">Suggested Tasks:</h3>
+                    <div id="suggestions-list" class="space-y-2 max-h-60 overflow-y-auto p-2 bg-gray-900 rounded-md">
+                        <!-- Suggestions will be populated here -->
+                    </div>
+                     <button id="add-selected-tasks-btn" class="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-4 rounded-lg">Add Selected Tasks</button>
+                </div>
+                 <div id="loading-spinner" class="hidden justify-center items-center py-8">
+                    <div class="spinner w-8 h-8 rounded-full border-4"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+
+            // DOM Elements
+            const taskForm = document.getElementById('task-form');
+            const taskListContainer = document.getElementById('task-list');
+            const taskLogContainer = document.getElementById('task-log');
+            const noTasksMessage = document.getElementById('no-tasks-message');
+            const noLogsMessage = document.getElementById('no-logs-message');
+            const dateSpan = document.getElementById('date-span');
+            const timeSpan = document.getElementById('time-span');
+            
+            // AI Modal Elements
+            const aiModal = document.getElementById('ai-suggestion-modal');
+            const suggestTasksBtn = document.getElementById('suggest-tasks-btn');
+            const closeModalBtn = document.getElementById('close-modal-btn');
+            const generateSuggestionsBtn = document.getElementById('generate-suggestions-btn');
+            const suggestionsContainer = document.getElementById('suggestions-container');
+            const suggestionsList = document.getElementById('suggestions-list');
+            const addSelectedTasksBtn = document.getElementById('add-selected-tasks-btn');
+            const loadingSpinner = document.getElementById('loading-spinner');
+            const workflowGoalInput = document.getElementById('workflow-goal');
+
+            let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+            let mainInterval;
+            let tempSuggestedTasks = [];
+            
+            // --- Gemini API Configuration ---
+            const API_KEY = "AIzaSyDbN7BqcMsgAYQJaaePFDAw008td2SpQnM"; // Leave as is, it will be handled by the environment
+            const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${API_KEY}`;
+            
+            const callGeminiAPI = async (prompt, isJson = false) => {
+                const payload = {
+                    contents: [{ parts: [{ text: prompt }] }],
+                };
+                
+                if (isJson) {
+                    payload.generationConfig = {
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                             type: "ARRAY",
+                             items: {
+                                 type: "OBJECT",
+                                 properties: {
+                                     name: { type: "STRING" },
+                                     action: { type: "STRING" },
+                                     intervalValue: { type: "NUMBER" },
+                                     unit: { type: "STRING", enum: ["seconds", "minutes", "hours"] }
+                                 },
+                                 required: ["name", "action", "intervalValue", "unit"]
+                             }
+                        }
+                    };
+                }
+
+                try {
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        const errorBody = await response.json();
+                        throw new Error(`API Error: ${response.status} ${response.statusText} - ${errorBody.error?.message || 'Unknown error'}`);
+                    }
+                    
+                    const result = await response.json();
+                    return result.candidates[0].content.parts[0].text;
+                } catch (error) {
+                    console.error("Gemini API call failed:", error);
+                    logMessage(`Gemini API Error: ${error.message}`, 'text-red-400');
+                    throw error;
+                }
+            };
+            
+            // --- Core App Logic ---
+            const saveTasks = () => localStorage.setItem('tasks', JSON.stringify(tasks));
+
+            const logMessage = (message, color = 'text-gray-400') => {
+                const timestamp = new Date().toLocaleTimeString();
+                const sanitizedMessage = message.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                const logEntry = `<span class="text-gray-600">[${timestamp}]</span> <span class="${color}">${sanitizedMessage}</span>\n`;
+                taskLogContainer.innerHTML += logEntry;
+                taskLogContainer.scrollTop = taskLogContainer.scrollHeight;
+                if(noLogsMessage.style.display !== 'none') noLogsMessage.style.display = 'none';
+            };
+            
+            const renderTasks = () => {
+                taskListContainer.innerHTML = '';
+                noTasksMessage.style.display = tasks.length === 0 ? 'block' : 'none';
+
+                tasks.forEach(task => {
+                    const taskCard = document.createElement('div');
+                    taskCard.className = 'task-card bg-gray-800 p-4 rounded-lg shadow-md flex items-center justify-between';
+                    
+                    const timeRemaining = task.paused ? 0 : (task.nextRun - Date.now()) / 1000;
+                    const nextRunText = task.paused ? 'Paused' : `Next run in ${Math.ceil(timeRemaining > 0 ? timeRemaining : 0)}s`;
+                    const statusColor = task.paused ? 'bg-yellow-500' : 'bg-green-500';
+
+                    taskCard.innerHTML = `
+                        <div class="flex items-center gap-4">
+                            <span class="w-2.5 h-2.5 ${statusColor} rounded-full"></span>
+                            <div>
+                                <h3 class="font-semibold text-white">${task.name} ${task.isAiAction ? '✨' : ''}</h3>
+                                <p class="text-sm text-gray-400" data-task-id="${task.id}-next-run">${nextRunText}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button class="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-md" data-action="toggle" data-id="${task.id}" title="${task.paused ? 'Resume' : 'Pause'}">
+                                <i data-lucide="${task.paused ? 'play' : 'pause'}" class="w-5 h-5"></i>
+                            </button>
+                            <button class="p-2 text-gray-400 hover:text-red-500 hover:bg-gray-700 rounded-md" data-action="delete" data-id="${task.id}" title="Delete">
+                                <i data-lucide="trash-2" class="w-5 h-5"></i>
+                            </button>
+                        </div>
+                    `;
+                    taskListContainer.appendChild(taskCard);
+                });
+                lucide.createIcons();
+            };
+
+            const updateNextRunTimes = () => {
+                tasks.forEach(task => {
+                    const el = document.querySelector(`[data-task-id="${task.id}-next-run"]`);
+                    if (el) {
+                        const timeRemaining = (task.nextRun - Date.now()) / 1000;
+                        if (task.paused) {
+                            el.textContent = 'Paused';
+                        } else if (timeRemaining > 0) {
+                            el.textContent = `Next run in ${Math.ceil(timeRemaining)}s`;
+                        } else {
+                            el.textContent = 'Running...';
+                        }
+                    }
+                });
+            };
+            
+            const executeTask = async (task) => {
+                if(task.isAiAction) {
+                    logMessage(`✨ Executing AI task '${task.name}'...`, 'text-purple-400');
+                    try {
+                        const aiResponse = await callGeminiAPI(task.action);
+                        logMessage(`✨ AI Response for '${task.name}': ${aiResponse}`, 'text-purple-400');
+                    } catch (error) {
+                        logMessage(`❌ AI Task '${task.name}' failed. See console for details.`, 'text-red-400');
+                    }
+                } else {
+                    logMessage(`Executing task '${task.name}': ${task.action}`, 'text-indigo-400');
+                }
+            };
+
+            const tick = () => {
+                const now = Date.now();
+                tasks.forEach(task => {
+                    if (!task.paused && now >= task.nextRun) {
+                        executeTask(task); // fire and forget
+                        task.nextRun = now + task.interval;
+                        saveTasks();
+                    }
+                });
+                updateNextRunTimes();
+            };
+            
+            const addTask = (taskDetails) => {
+                 let intervalInMs;
+                switch (taskDetails.unit) {
+                    case 'seconds': intervalInMs = taskDetails.intervalValue * 1000; break;
+                    case 'minutes': intervalInMs = taskDetails.intervalValue * 60 * 1000; break;
+                    case 'hours': intervalInMs = taskDetails.intervalValue * 60 * 60 * 1000; break;
+                    default: intervalInMs = 10000;
+                }
+                
+                const newTask = {
+                    id: Date.now().toString() + Math.random(),
+                    name: taskDetails.name,
+                    action: taskDetails.action,
+                    isAiAction: taskDetails.isAiAction || false,
+                    interval: intervalInMs,
+                    nextRun: Date.now() + intervalInMs,
+                    paused: false,
+                };
+
+                tasks.push(newTask);
+                saveTasks();
+                renderTasks();
+                logMessage(`Task '${newTask.name}' scheduled to run every ${taskDetails.intervalValue} ${taskDetails.unit}.`);
+            };
+
+            taskForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                addTask({
+                    name: document.getElementById('task-name').value,
+                    action: document.getElementById('task-action').value,
+                    isAiAction: document.getElementById('ai-action-checkbox').checked,
+                    intervalValue: parseInt(document.getElementById('task-interval').value),
+                    unit: document.getElementById('task-unit').value
+                });
+                taskForm.reset();
+            });
+
+            taskListContainer.addEventListener('click', (e) => {
+                const button = e.target.closest('button');
+                if (!button) return;
+                const { action, id } = button.dataset;
+                const taskIndex = tasks.findIndex(t => t.id === id);
+                if (taskIndex === -1) return;
+
+                if (action === 'toggle') {
+                    tasks[taskIndex].paused = !tasks[taskIndex].paused;
+                    if (!tasks[taskIndex].paused) {
+                        tasks[taskIndex].nextRun = Date.now() + tasks[taskIndex].interval;
+                        logMessage(`Task '${tasks[taskIndex].name}' resumed.`, 'text-green-400');
+                    } else {
+                         logMessage(`Task '${tasks[taskIndex].name}' paused.`, 'text-yellow-400');
+                    }
+                } else if (action === 'delete') {
+                    logMessage(`Task '${tasks[taskIndex].name}' deleted.`, 'text-red-400');
+                    tasks.splice(taskIndex, 1);
+                }
+                
+                saveTasks();
+                renderTasks();
+            });
+
+            // --- Modal Logic ---
+            const toggleModal = (show) => {
+                if (show) {
+                    aiModal.classList.remove('hidden');
+                    setTimeout(() => {
+                        aiModal.classList.remove('opacity-0');
+                        aiModal.querySelector('.modal-content').classList.remove('scale-95');
+                    }, 10);
+                } else {
+                    aiModal.classList.add('opacity-0');
+                    aiModal.querySelector('.modal-content').classList.add('scale-95');
+                    setTimeout(() => aiModal.classList.add('hidden'), 300);
+                }
+            };
+
+            suggestTasksBtn.addEventListener('click', () => {
+                suggestionsContainer.classList.add('hidden');
+                workflowGoalInput.value = '';
+                suggestionsList.innerHTML = '';
+                tempSuggestedTasks = [];
+                toggleModal(true);
+            });
+            closeModalBtn.addEventListener('click', () => toggleModal(false));
+
+            generateSuggestionsBtn.addEventListener('click', async () => {
+                const goal = workflowGoalInput.value;
+                if (!goal) {
+                    logMessage("Please enter a goal for the workflow.", 'text-yellow-400');
+                    return;
+                }
+
+                loadingSpinner.classList.remove('hidden');
+                generateSuggestionsBtn.disabled = true;
+                suggestionsContainer.classList.add('hidden');
+
+                const prompt = `Based on the goal "${goal}", suggest a list of 3 to 5 automated tasks. For each task, provide a concise 'name', a simple 'action' message (or a prompt if it's an AI task), a suggested 'intervalValue' (number), and 'unit' ('seconds', 'minutes', or 'hours'). Return ONLY the JSON array.`;
+                
+                try {
+                    const responseText = await callGeminiAPI(prompt, true);
+                    const suggestedTasks = JSON.parse(responseText);
+                    tempSuggestedTasks = suggestedTasks;
+                    
+                    suggestionsList.innerHTML = '';
+                    suggestedTasks.forEach((task, index) => {
+                        const li = document.createElement('li');
+                        li.className = 'p-2 bg-gray-700 rounded-md text-sm';
+                        li.innerHTML = `
+                            <label class="flex items-center cursor-pointer">
+                                <input type="checkbox" checked class="h-4 w-4 rounded border-gray-500 bg-gray-800 text-indigo-600 focus:ring-indigo-500" data-task-index="${index}">
+                                <span class="ml-3">
+                                    <strong class="text-white">${task.name}</strong> - Every ${task.intervalValue} ${task.unit}
+                                </span>
+                            </label>`;
+                        suggestionsList.appendChild(li);
+                    });
+                    suggestionsContainer.classList.remove('hidden');
+
+                } catch (error) {
+                     logMessage("Failed to generate task suggestions.", 'text-red-400');
+                } finally {
+                    loadingSpinner.classList.add('hidden');
+                    generateSuggestionsBtn.disabled = false;
+                }
+            });
+            
+            addSelectedTasksBtn.addEventListener('click', () => {
+                const checkboxes = suggestionsList.querySelectorAll('input[type="checkbox"]:checked');
+                checkboxes.forEach(cb => {
+                    const taskIndex = parseInt(cb.dataset.taskIndex, 10);
+                    if (isNaN(taskIndex) || !tempSuggestedTasks[taskIndex]) return;
+                    const taskData = tempSuggestedTasks[taskIndex];
+                    addTask({
+                        name: taskData.name,
+                        action: taskData.action,
+                        isAiAction: false, // Default suggested tasks to non-AI
+                        intervalValue: taskData.intervalValue,
+                        unit: taskData.unit
+                    });
+                });
+                toggleModal(false);
+                logMessage(`${checkboxes.length} tasks added from AI suggestions.`, 'text-purple-400');
+            });
+
+
+            // --- Initialization ---
+            const startEngine = () => {
+                if(mainInterval) clearInterval(mainInterval);
+                mainInterval = setInterval(tick, 1000); // Check every second
+            };
+            const updateClock = () => {
+                 const now = new Date();
+                 dateSpan.textContent = now.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+                 timeSpan.textContent = now.toLocaleTimeString();
+            };
+
+            renderTasks();
+            startEngine();
+            setInterval(updateClock, 1000);
+            updateClock();
+            logMessage('Task Automator initialized.');
+        });
+    </script>
+</body>
+</html>
+
