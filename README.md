@@ -1,4 +1,4 @@
-# 🚀Task Automator:- AI-Powered Workflow Automation Tool
+# 🚀Task Automator:- AI-Powered Workflow Automation
 
 [![Live Demo](https://img.shields.io/badge/Live-Demo-blue?style=for-the-badge)](https://gulamshaikh.github.io/task-automator/)
 [![GitHub](https://img.shields.io/badge/GitHub-Repository-black?style=for-the-badge&logo=github)](https://github.com/GulamShaikh/task-automator)
