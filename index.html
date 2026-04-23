@@ -251,10 +251,18 @@
             let tempSuggestedTasks = [];
             
             // --- Gemini API Configuration ---
-            const API_KEY = "AIzaSyDbN7BqcMsgAYQJaaePFDAw008td2SpQnM"; // Leave as is, it will be handled by the environment
-            const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${API_KEY}`;
-            
+            const GEMINI_MODEL = 'gemini-2.5-flash';
+            const getApiKey = () => localStorage.getItem('gemini_api_key') || '';
+
             const callGeminiAPI = async (prompt, isJson = false) => {
+                const apiKey = getApiKey();
+                if (!apiKey) {
+                    const msg = 'No API key set. Click the ⚙️ settings icon in the header to add your Gemini API key.';
+                    logMessage(msg, 'text-yellow-400');
+                    throw new Error(msg);
+                }
+
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
                 const payload = {
                     contents: [{ parts: [{ text: prompt }] }],
                 };
@@ -279,7 +287,7 @@
                 }
 
                 try {
-                    const response = await fetch(API_URL, {
+                    const response = await fetch(apiUrl, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
@@ -462,6 +470,61 @@
                     setTimeout(() => aiModal.classList.add('hidden'), 300);
                 }
             };
+
+            // --- API Settings Modal Logic ---
+            const apiModal = document.getElementById('api-settings-modal');
+            const apiSettingsBtn = document.getElementById('api-settings-btn');
+            const closeApiModalBtn = document.getElementById('close-api-modal-btn');
+            const apiKeyInput = document.getElementById('api-key-input');
+            const saveApiKeyBtn = document.getElementById('save-api-key-btn');
+            const clearApiKeyBtn = document.getElementById('clear-api-key-btn');
+            const apiKeyStatus = document.getElementById('api-key-status');
+
+            const toggleApiModal = (show) => {
+                if (show) {
+                    // Pre-fill with masked indicator if key already saved
+                    apiKeyInput.value = getApiKey() ? '' : '';
+                    apiKeyInput.placeholder = getApiKey() ? 'API key is saved — enter a new one to replace it' : 'Enter your Gemini API key';
+                    apiKeyStatus.classList.add('hidden');
+                    apiModal.classList.remove('hidden');
+                    setTimeout(() => {
+                        apiModal.classList.remove('opacity-0');
+                        apiModal.querySelector('.modal-content').classList.remove('scale-95');
+                    }, 10);
+                } else {
+                    apiModal.classList.add('opacity-0');
+                    apiModal.querySelector('.modal-content').classList.add('scale-95');
+                    setTimeout(() => apiModal.classList.add('hidden'), 300);
+                }
+            };
+
+            const showApiStatus = (message, isError = false) => {
+                apiKeyStatus.textContent = message;
+                apiKeyStatus.className = `text-sm text-center ${isError ? 'text-red-400' : 'text-green-400'}`;
+                apiKeyStatus.classList.remove('hidden');
+            };
+
+            apiSettingsBtn.addEventListener('click', () => toggleApiModal(true));
+            closeApiModalBtn.addEventListener('click', () => toggleApiModal(false));
+
+            saveApiKeyBtn.addEventListener('click', () => {
+                const key = apiKeyInput.value.trim();
+                if (!key) {
+                    showApiStatus('Please enter an API key.', true);
+                    return;
+                }
+                localStorage.setItem('gemini_api_key', key);
+                apiKeyInput.value = '';
+                apiKeyInput.placeholder = 'API key is saved — enter a new one to replace it';
+                showApiStatus('✅ API key saved successfully!');
+            });
+
+            clearApiKeyBtn.addEventListener('click', () => {
+                localStorage.removeItem('gemini_api_key');
+                apiKeyInput.value = '';
+                apiKeyInput.placeholder = 'Enter your Gemini API key';
+                showApiStatus('API key cleared.', true);
+            });
 
             suggestTasksBtn.addEventListener('click', () => {
                 suggestionsContainer.classList.add('hidden');
